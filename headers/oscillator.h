@@ -19,14 +19,17 @@ struct Oscillator{
     float detune;    
     float phaseOffset; 
     float gain;
-    void* params;
+    Oscillator* modulatePitch;
+    OscillatorState* modulatePitchState;
+    float* params;
     int paramLength;
 };
 struct OscillatorState{
     float phase;
+    float freqBase;
     float freq;
     float last;
-    void* data;
+    float* data;
     int dataLength;
 };
 

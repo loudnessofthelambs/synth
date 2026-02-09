@@ -10,6 +10,11 @@ void osciAdvance(Oscillator* osci, OscillatorState* state, float sr) {
 
     state->phase += state->freq*powf(2.0f, osci->detune / 1200.0f)/sr;
     if (state->phase >= 1.0f) state->phase -= 1.0f;
+    if (osci->modulatePitch) {
+        state->freq = state->freqBase * (0.5 + osciNext(osci->modulatePitch, osci->modulatePitchState, sr) );
+        
+    }
+    printf("%f\n", osciGet);
 }
 float osciNext(Oscillator* osci, OscillatorState* state, float sr) {
     float ret = osciGet(osci, state, sr);

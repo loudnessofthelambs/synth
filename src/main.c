@@ -115,11 +115,8 @@ float voiceNext(Voice* voice) {
         
     }
 
-    sample *= adsrNext(&voice->instr->adsr, &voice->state.adsr, voice->sampleRate);
-    //printf("%f\n", sample);
-    float filterEnv = adsrNext(&voice->instr->filterEnv, &voice->state.filterEnv, voice->sampleRate);
-    float cutoff = voice->instr->lpf.baseCutoff +filterEnv * voice->instr->lpf.envRange;
-
+    sample = applyEnvLinear(&voice->instr->adsr, &voice->state.adsr, sample, (1-fabsf(voice->instr->adsr.modulAmount))*sample, voice->sampleRate);
+    float cutoff = applyEnvLinear(&voice->instr->filterEnv, &voice->state.filterEnv, voice->instr->lpf.envRange, voice->instr->lpf.baseCutoff, voice->sampleRate);
     if (cutoff > voice->sampleRate / 2) cutoff = voice->sampleRate / 2; 
     voice->state.lpf.cutoff = cutoff;
     //printf("vcreash\n");
@@ -146,8 +143,14 @@ void voiceOn(Voice* voice, Instrument* instr, int midiNote, float velocity, floa
 
     for (int i = 0; i < instr->numOscs;i++) {
         voice->state.oscis[i].freq = midiToFreq(midiNote);
+        voice->state.oscis[i].freqBase = midiToFreq(midiNote);
         voice->state.oscis[i].phase = fmod(instr->oscs[i].phaseOffset,1);
+        for (int j = 0; j < instr->oscs[i].paramLength;i++) {
+            voice->state.oscis[i].data[j] = instr->oscs[i].params[j];
+            
+        }   
     }
+    
 
     voice->state.adsr.stage = ADSR_ATTACK;
     voice->state.adsr.value = 0.0f;
@@ -260,7 +263,6 @@ void generateAudio(
 }
 
 
-
 int main(int argc, char** argv)
 {
     FILE* fp;
@@ -308,18 +310,19 @@ int main(int argc, char** argv)
 
     Instrument simplesine = {};
     Instrument simplesaw = {};
+    Oscillator osciMod = {sineWave, 0.0, 0.0, 1.0, NULL, NULL};
+    OscillatorState osciModState = {0.0, 4.0};
 
-
-    Oscillator osci = {sawWave, -2.0, 0.0, 0.6};
-    Oscillator osci2 = {squareWave, -1205.0, 0.0, 0.3};
-    Oscillator osci3 = {sineWave, 700.0, 0.0, 0.1};
+    Oscillator osci = {sawWave, -2.0, 0.0, 0.6, &osciMod, &osciModState};
+    Oscillator osci2 = {squareWave, -1205.0, 0.0, 0.3, &osciMod, &osciModState};
+    Oscillator osci3 = {sineWave, 700.0, 0.0, 0.1, &osciMod, &osciModState};
     simplesine.numOscs = 3;
 
     simplesine.oscs[0]=osci;
     simplesine.oscs[1]=osci2;
     simplesine.oscs[2] = osci3;
-    ADSREnv env = {0.03, 0.35, 0.1, 0.2};
-    ADSREnv env2 = {0.05, 0.2, 0.85, 0.2};
+    ADSREnv env = {0.1, 0.35, 0.1, 0.2, 1, 1};
+    ADSREnv env2 = {0.1, 0.2, 0.85, 0.2, 1, 1};
     simplesine.adsr = env2;
     simplesine.filterEnv = env;
     simplesaw.filterEnv = env;
