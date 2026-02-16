@@ -1,0 +1,8 @@
+
+Add easier way to import instruments, maybe via json or something
+
+Add support for playing multiple notes simultaneously,
+
+BIG: ADD MIDI SUPPORT
+
+Add more features

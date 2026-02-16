@@ -5,14 +5,17 @@
 
 typedef struct LPF LPF;
 typedef struct LPFState LPFState;
-typedef struct LPFParams LPFParams;
+typedef union LPFParams LPFParams;
 
 float LPFNext(LPF* lpf, LPFState* state, float input, float sampleRate);
 
 
-struct LPFParams {
-    float cutoff;
-    float resonance;
+union LPFParams {
+    struct {
+        float cutoff;
+        float resonance;
+    };
+    float paramsArray[2];
 };
 
 struct LPF {

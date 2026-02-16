@@ -21,24 +21,25 @@ struct VoiceState{
     OscillatorState oscis[MAX_OSCI];
     ADSREnvState envStates[MAX_OTHER];
     LPFState filterStates[MAX_OTHER];
+    OscillatorState lfoState[MAX_OSCI];
 };
 
-//this is a fucking retarded workaround to volume modulation but i couldnt think of anything else
 struct VoiceParams {
     float volume;
+    float sample;
 };
 
 struct Instrument{
     Oscillator oscs[MAX_OSCI];
     ADSREnv envs[MAX_OTHER]; 
     LPF filters[MAX_OTHER];
-
+    Oscillator lfos[MAX_OTHER];
     int8_t numEnvs;
     int8_t numOscs;
     int8_t numFilters;
-    
+    int8_t numLFOS;
     ModMatrix matrix;
-    int rowNum;
+    int routeNum;
     float gain;
 };
 struct Voice{
@@ -63,4 +64,6 @@ void voiceOn(Voice* voice, Instrument* instr, int midiNote, float velocity, floa
 
 void voiceOff(Voice* voice);
 
-void addModRoute(Instrument* instrum, MODROUTE_MODE mode, Modifier modifier, int index, float amount, float* destination);
+void addModRoute(Instrument* instrum, MODROUTE_MODE mode, Modifier modifier, int index, float amount, ModDest destination);
+
+void setDefaultModRoutes(Instrument* instrum);

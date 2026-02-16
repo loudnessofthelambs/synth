@@ -1,6 +1,6 @@
 #include "../headers/all.h"
 #include "../headers/adsr.h"
-
+#include <stdio.h>
 
 float adsrGet(ADSREnv* env, ADSREnvState* state, float sr) {
     (void)env;
@@ -16,6 +16,7 @@ void adsrAdvance(ADSREnv* env, ADSREnvState* state, float sr) {
             state->value = 1.0f;
             state->stage = ADSR_DECAY;
         }
+        
         break;
 
     case ADSR_DECAY:
@@ -27,6 +28,9 @@ void adsrAdvance(ADSREnv* env, ADSREnvState* state, float sr) {
         break;
 
     case ADSR_SUSTAIN:
+        if (state->value <= 0.5) {
+            //printf("Here%f\n", state->value);
+        }
         break;
 
     case ADSR_RELEASE:
@@ -40,11 +44,11 @@ void adsrAdvance(ADSREnv* env, ADSREnvState* state, float sr) {
             state->value = 0.0f;
             state->stage = ADSR_OFF;
         }
-        
         break;
 
     case ADSR_OFF:
         state->value = 0.0f;
+        return;
         break;
     }
     if (env->active == 0) {

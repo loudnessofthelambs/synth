@@ -9,6 +9,7 @@ typedef struct ModDest ModDest;
 typedef enum {
     ADD,
     MULT,
+    MULTADD, // basically adds a percentage instead of multiplying the whole thing
     ASSIGN,
 } MODROUTE_MODE;
 typedef enum {
@@ -18,6 +19,7 @@ typedef enum {
     CONSTANT, //alternatively equivalent to voice volume in the case of ModDest
     ROUTE,
     OSCILLATOR,
+    VOLUME,
 } Modifier;
 
 
@@ -38,18 +40,12 @@ struct ModRoute {
     MODROUTE_MODE mode;
 };
 
-struct ModRow {
-    ModRoute routes[MAX_ROUTES_PER_ROW];
-    int routesNum;
-    float* base;
-    float* destination;
 
-};
 
-typedef ModRow ModMatrix[MAX_ROWS];
+typedef ModRoute ModMatrix[MAX_ROWS];
 
 
 
-void applyModRow(ModRow* modrow, float sr);
+void applyModRoute(ModRoute* modroute, float sr);
 
 void applyModMatrix(ModMatrix modroutes, int length, float sr);

@@ -15,10 +15,11 @@ void osciAdvance(Oscillator* osci, OscillatorState* state, float sr) {
 
     
 }
-float osciNext(Oscillator* osci, OscillatorState* state, float sr) {
+float osciNext(Oscillator* osci, OscillatorState* state, float input, float sr) {
     float ret = osciGet(osci, state, sr);
     state->last = ret;
     osciAdvance(osci, state, sr); 
+ 
     return ret*state->params.gain;
 }
 
@@ -145,4 +146,7 @@ float polyblepTriangle(OscillatorState* state, float sampleRate) {
     float out = dt * sq + (1.0f - dt) * state->last;
     out *= 1;
     return out;
+}
+float noise(OscillatorState* state, float sampleRate) {
+    return (float)rand() / (float)RAND_MAX;
 }
