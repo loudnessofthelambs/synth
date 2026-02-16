@@ -2,36 +2,29 @@
 
 typedef struct Oscillator Oscillator;
 typedef struct OscillatorState OscillatorState;
+typedef struct OscillatorParams OscillatorParams;
 
+struct OscillatorParams {
+    float freq;
+    float freqBase;
+    float gain;
+};
 
-/*little bit of explanation: 
-Every oscillator has some data that every oscillator has, like the current frequency and phase.
-However, it also has some data that the individual oscillator needs to hold. For example, a pulse wave
-needs to store the current pulse width, as a state variable, so that pulse width modulation is possible.
-However, there is an issue, when initializing a voice, the oscillators in each instrument only have their
-parameters set. There is no way with my system to initialize the state. So, the first paramLength entries
-in OscillatorState.data will be propagated with Oscillator->params automatically. This also has the advantage
-of only requiring the next function to take in an oscillator state variable, as it can read parameters from there.
-
-*/
 struct Oscillator{
     float (*get)(OscillatorState*, float);
     float detune;    
     float phaseOffset; 
-    float gain;
-    Oscillator* modulatePitch;
-    OscillatorState* modulatePitchState;
-    float* params;
-    int paramLength;
+    
+    OscillatorParams baseParams;
+
 };
 struct OscillatorState{
     float phase;
-    float freqBase;
-    float freq;
     float last;
-    float* data;
-    int dataLength;
+    OscillatorParams params;
 };
+
+
 
 float osciGet(Oscillator* osci, OscillatorState* state, float sr);
 void osciAdvance(Oscillator* osci, OscillatorState* state, float sr);

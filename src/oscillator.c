@@ -4,40 +4,43 @@
 
 
 float osciGet(Oscillator* osci, OscillatorState* state, float sr) {
-    return osci->get(state, sr);
+    float ret = osci->get(state, sr);
+
+    return ret;
 }
 void osciAdvance(Oscillator* osci, OscillatorState* state, float sr) {
 
-    state->phase += state->freq*powf(2.0f, osci->detune / 1200.0f)/sr;
+    state->phase += state->params.freq*powf(2.0f, osci->detune / 1200.0f)/sr;
     if (state->phase >= 1.0f) state->phase -= 1.0f;
-    if (osci->modulatePitch) {
-        state->freq = state->freqBase * (0.5 + osciNext(osci->modulatePitch, osci->modulatePitchState, sr) );
-        
-    }
-    printf("%f\n", osciGet);
+
+    
 }
 float osciNext(Oscillator* osci, OscillatorState* state, float sr) {
     float ret = osciGet(osci, state, sr);
     state->last = ret;
     osciAdvance(osci, state, sr); 
-    return ret*osci->gain;
+    return ret*state->params.gain;
 }
 
 
 float squareWave(OscillatorState* state, float sr) {
+    (void)sr;
     return state->phase < 0.5f ? 1.0f : -1.0f;
 }
-//NOTE: FOR PULSE, datalength=1, datatype = float, data[0] = pulse width
-float pulseWave(OscillatorState* state, float sr) {
-    return state->phase < ((float*)state->data)[0] ? 1.0f : -1.0f;
-}
+
+//float pulseWave(OscillatorState* state, float sr) {
+  //  return state->phase < ((float*)state->data)[0] ? 1.0f : -1.0f;
+//}
 float triangleWave(OscillatorState* state, float sr) {
+    (void)sr;
     return 2.0f * fabsf(2.0f * state->phase - 1.0f) - 1.0f;
 }
 float sineWave(OscillatorState* state, float sr) {
+    (void)sr;
     return sinf(2.0f * M_PI * state->phase);
 }
 float sawWave(OscillatorState* state, float sr) {
+    (void)sr;
     return 2.0 * state->phase - 1.0;
 }
 
@@ -54,7 +57,7 @@ static float polyBLEP(float t, float dt) {
 }
 
 float polyblepSaw(OscillatorState* state, float sr) {
-    float dt = state->freq / sr;
+    float dt = state->params.freq / sr;
     float t = state->phase;
     float y = 2.0f * t - 1.0f;            
     y -= polyBLEP(t, dt);                 
@@ -63,7 +66,7 @@ float polyblepSaw(OscillatorState* state, float sr) {
 
 float polyblepSquare(OscillatorState* state, float sampleRate) {
     float t  = state->phase;
-    float dt = state->freq / sampleRate;
+    float dt = state->params.freq / sampleRate;
 
     float y = (t < 0.5f) ? 1.0f : -1.0f;
 
@@ -78,13 +81,12 @@ float polyblepSquare(OscillatorState* state, float sampleRate) {
     return y;
 }
 
-
-//NOTE: FOR PULSE, datalength=1, datatype = float, data[0] = pulse width
+/*
 float polyblepPulse(OscillatorState* state, float sampleRate) {
     float t  = state->phase;
     float dt = state->freq / sampleRate;
 
-    float y = (t < ((float*)state->data)[0]) ? 1.0f : -1.0f;
+    //float y = (t < ((float*)state->data)[0]) ? 1.0f : -1.0f;
 
     // BLEP at rising edge (phase = 0)
     y += polyBLEP(t, dt);
@@ -96,7 +98,7 @@ float polyblepPulse(OscillatorState* state, float sampleRate) {
     y *= 1.0f / (1.0f - dt);
     return y;
 }
-
+*/
 
 static float polyBLAMP(float t, float dt)
 {
@@ -118,7 +120,7 @@ static float polyBLAMP(float t, float dt)
 float polyblampTriangle(OscillatorState* state, float sampleRate)
 {
     float t  = state->phase;
-    float dt = state->freq / sampleRate;
+    float dt = state->params.freq / sampleRate;
 
     // safety clamp
     if (dt > 0.5f)
@@ -134,7 +136,7 @@ float polyblampTriangle(OscillatorState* state, float sampleRate)
 }
 
 float polyblepTriangle(OscillatorState* state, float sampleRate) {
-    float dt = state->freq / sampleRate;
+    float dt = state->params.freq / sampleRate;
 
     // 1. Get band-limited square
     float sq = polyblepSquare(state, sampleRate);

@@ -4,6 +4,7 @@ typedef enum ADSRStage ADSRStage;
 typedef struct ADSREnv ADSREnv;
 typedef struct ADSREnvState ADSREnvState;
 
+
 enum ADSRStage{
     ADSR_OFF,
     ADSR_ATTACK,
@@ -19,7 +20,6 @@ struct ADSREnv {
     //this is a workaround to the fact that technically every instrument has to have an envelope, if this is 0 then
     //the envelope just returns 1
     int8_t active;
-    float modulAmount;
 };
 
 struct ADSREnvState{
@@ -31,5 +31,4 @@ struct ADSREnvState{
 
 float adsrGet(ADSREnv* env, ADSREnvState* state, float sr);
 void adsrAdvance(ADSREnv* env, ADSREnvState* state, float sr);
-float adsrNext(ADSREnv* env, ADSREnvState* state, float sr);
-float applyEnvLinear(ADSREnv* env, ADSREnvState* state, float val, float base, float sr);
+float adsrNext(ADSREnv* env, ADSREnvState* state, float, float sr);

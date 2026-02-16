@@ -3,6 +3,8 @@
 
 
 float adsrGet(ADSREnv* env, ADSREnvState* state, float sr) {
+    (void)env;
+    (void)sr;
     return state->value;
 }
 void adsrAdvance(ADSREnv* env, ADSREnvState* state, float sr) {
@@ -51,14 +53,12 @@ void adsrAdvance(ADSREnv* env, ADSREnvState* state, float sr) {
     }
 }
 
-float adsrNext(ADSREnv* env, ADSREnvState* state, float sr) {
+float adsrNext(ADSREnv* env, ADSREnvState* state, float val, float sr) {
+    (void)val;
     float ret = state->value;
     adsrAdvance(env,state, sr);
     return ret;
 }
 
-float applyEnvLinear(ADSREnv* env, ADSREnvState* state, float val, float base, float sr) {
-    float envVal = adsrNext(env, state, sr);
-    return base + (envVal * val * env->modulAmount);
-     //(1-fabsf(voice->instr->adsr.modulAmount))*sample
-}
+
+

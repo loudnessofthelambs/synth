@@ -7,6 +7,8 @@
 #include "../headers/all.h"
 #include "../headers/adsr.h"
 #include "../headers/lpf.h"
+#include "../headers/voice.h"
+#include "../headers/modroutes.h"
 
 #define HEADER_SIZE 44
 #define BLOCK_SIZE 512
@@ -16,11 +18,6 @@ typedef struct WavHeader WavHeader;
 
 typedef struct WavFile WavFile;
 
-typedef struct VoiceState VoiceState;
-typedef struct Synth Synth;
-
-typedef struct Instrument Instrument;
-typedef struct Voice Voice;
 float midiToFreq(float num);
 float voiceNext(Voice* voice);
 void voiceOn(Voice* voice, Instrument* instr, int midiNote, float velocity, float volume, float sampleRate);
@@ -65,116 +62,9 @@ struct WavFile{
 
 
 
-struct VoiceState{
-    OscillatorState oscis[MAX_OSCI];
-    ADSREnvState adsr;
-    ADSREnvState filterEnv;
-    LPFState lpf;
-    float volume;
-};
 
 
 
-struct Instrument{
-    Oscillator oscs[MAX_OSCI];
-    int8_t numOscs;
-    ADSREnv adsr;
-    ADSREnv filterEnv;
-    LPF lpf;
-    float gain;
-};
-struct Voice{
-    Instrument* instr;
-    VoiceState state;
-    float sampleRate;
-    int note;
-    float velocity;
-    int active;
-};
-
-struct Synth{
-    Voice voices[MAX_VOICES];
-    float sampleRate;
-};
-
-float midiToFreq(float num) {
-    return 440.0*pow(2.0,(num-69)/12.0);
-}
-
-
-
-float voiceNext(Voice* voice) {
-    if (!voice->active) return 0.0;
-
-    float sample = 0;
-    //void* x = &voice;
-    //printf("vcreash\n");
-    for (int i = 0; i < voice->instr->numOscs; i++) {
-        sample += osciNext(&voice->instr->oscs[i], &voice->state.oscis[i], voice->sampleRate);
-        //printf("%f\n", sample);
-        
-    }
-
-    sample = applyEnvLinear(&voice->instr->adsr, &voice->state.adsr, sample, (1-fabsf(voice->instr->adsr.modulAmount))*sample, voice->sampleRate);
-    float cutoff = applyEnvLinear(&voice->instr->filterEnv, &voice->state.filterEnv, voice->instr->lpf.envRange, voice->instr->lpf.baseCutoff, voice->sampleRate);
-    if (cutoff > voice->sampleRate / 2) cutoff = voice->sampleRate / 2; 
-    voice->state.lpf.cutoff = cutoff;
-    //printf("vcreash\n");
-    if (voice->state.adsr.stage == ADSR_OFF) {
-        voice->active = 0;
-        return 0.0f;
-    }
-
-    sample = LPFNext(&voice->instr->lpf, &voice->state.lpf, sample, voice->sampleRate);
-    //printf("%f\n", sample);
-    sample *= voice->instr->gain;
-    sample *= voice->state.volume;
-    //printf("%f\n", sample);
-    return sample;
-}
-
-void voiceOn(Voice* voice, Instrument* instr, int midiNote, float velocity, float volume, float sampleRate) {
-    voice->instr = instr;
-    voice->sampleRate = sampleRate;
-    voice->active = 1;
-    voice->state.volume = volume;
-    voice->note = midiNote;
-    voice->velocity = velocity;
-
-    for (int i = 0; i < instr->numOscs;i++) {
-        voice->state.oscis[i].freq = midiToFreq(midiNote);
-        voice->state.oscis[i].freqBase = midiToFreq(midiNote);
-        voice->state.oscis[i].phase = fmod(instr->oscs[i].phaseOffset,1);
-        for (int j = 0; j < instr->oscs[i].paramLength;i++) {
-            voice->state.oscis[i].data[j] = instr->oscs[i].params[j];
-            
-        }   
-    }
-    
-
-    voice->state.adsr.stage = ADSR_ATTACK;
-    voice->state.adsr.value = 0.0f;
-    voice->state.adsr.releaseValue = 0.0f;
-    voice->state.lpf.cutoff = instr->lpf.baseCutoff;
-    for (int i = 0; i < instr->lpf.poles; i++) {
-        voice->state.lpf.values[i] = 0;
-    }
-    
-    voice->state.filterEnv.stage = ADSR_ATTACK;
-    voice->state.filterEnv.value = 0;
-    voice->state.filterEnv.releaseValue = 0;
-
-}
-void voiceOff(Voice* voice) {
-    if (!voice->active) return;
-
-    if (voice->state.adsr.stage != ADSR_OFF &&
-        voice->state.adsr.stage != ADSR_RELEASE) {
-
-        voice->state.adsr.stage = ADSR_RELEASE;
-        voice->state.adsr.releaseValue = voice->state.adsr.value;
-    }
-}
 
 
 
@@ -266,7 +156,7 @@ void generateAudio(
 int main(int argc, char** argv)
 {
     FILE* fp;
-    fp = fopen("audio.wav", "wb+");
+    fp = fopen("audio3.wav", "wb+");
     if (fp == NULL) {
         printf("Error opening file for writing.\n");
         return 1;
@@ -307,15 +197,13 @@ int main(int argc, char** argv)
 
 
     //BEGIN ENTERING OF AUDIO DATA
-
+    /*
     Instrument simplesine = {};
     Instrument simplesaw = {};
-    Oscillator osciMod = {sineWave, 0.0, 0.0, 1.0, NULL, NULL};
-    OscillatorState osciModState = {0.0, 4.0};
 
-    Oscillator osci = {sawWave, -2.0, 0.0, 0.6, &osciMod, &osciModState};
-    Oscillator osci2 = {squareWave, -1205.0, 0.0, 0.3, &osciMod, &osciModState};
-    Oscillator osci3 = {sineWave, 700.0, 0.0, 0.1, &osciMod, &osciModState};
+    Oscillator osci = {sawWave, -2.0, 0.0, 0.6};
+    Oscillator osci2 = {squareWave, -1205.0, 0.0, 0.3};
+    Oscillator osci3 = {sineWave, 700.0, 0.0, 0.1};
     simplesine.numOscs = 3;
 
     simplesine.oscs[0]=osci;
@@ -323,10 +211,16 @@ int main(int argc, char** argv)
     simplesine.oscs[2] = osci3;
     ADSREnv env = {0.1, 0.35, 0.1, 0.2, 1, 1};
     ADSREnv env2 = {0.1, 0.2, 0.85, 0.2, 1, 1};
-    simplesine.adsr = env2;
-    simplesine.filterEnv = env;
-    simplesaw.filterEnv = env;
-    LPF lpf = {1500, 1500, 0.15, 4};
+    simplesine.envs[0] = env;
+    simplesine.envs[1] = env2;
+    simplesine.numEnvs = 2;
+    VoiceParams param = {1.0};
+    ModRoute audioEnv = {adsrNext, 1.0, &env2, initializeEnv(&env2, samplerat), MULT};
+    ModRow audioRow = {{audioEnv}, 1, &simplesine.gain};
+    
+    LPF lpf = {4, {1500.0, 0.15}};
+    ModRoute filterEnv = {adsrNext, 1500.0, &env2, initializeEnv(&env2, samplerat), MULT};
+    
     simplesine.lpf = lpf;
     simplesaw.lpf = lpf;
     simplesine.gain = 1.0;
@@ -386,7 +280,7 @@ int main(int argc, char** argv)
     generateAudio(&synth, 0.5, &simplesaw, 70, 1, 1, &file);
     generateAudio(&synth, 1, &simplesaw, 70, 1, 1, &file);
     //*/
-
+    
 
     //END ENTERING OF AUDIO DATA
     int datasize = file.bytesWritten;
@@ -397,7 +291,7 @@ int main(int argc, char** argv)
 
     fseek(fp, 40, SEEK_SET);
     fwrite(&datasize, 4, 1, fp);
-
+    
     
 
 }
