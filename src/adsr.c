@@ -1,6 +1,6 @@
-#include "../headers/all.h"
+
 #include "../headers/adsr.h"
-#include <stdio.h>
+//#include <stdio.h>
 
 float adsrGet(ADSREnv* env, ADSREnvState* state, float sr) {
     (void)env;
@@ -57,7 +57,7 @@ void adsrAdvance(ADSREnv* env, ADSREnvState* state, float sr) {
     }
 }
 
-float adsrNext(ADSREnv* env, ADSREnvState* state, float val, float sr) {
+float adsrNext(ADSREnv* env, ADSREnvState* state, void*, float val, float sr) {
     (void)val;
     float ret = state->value;
     adsrAdvance(env,state, sr);

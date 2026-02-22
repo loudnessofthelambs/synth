@@ -1,5 +1,5 @@
 #pragma once
-
+#include <stdint.h>
 typedef struct Oscillator Oscillator;
 typedef struct OscillatorState OscillatorState;
 typedef union OscillatorParams OscillatorParams;
@@ -10,11 +10,11 @@ union OscillatorParams {
         float freqBase;
         float gain;
     };
-    float paramsArray[3];
+    float paramsArray[4];
 };
 
 struct Oscillator{
-    float (*get)(OscillatorState*, float);
+    float (*get)(OscillatorState*, OscillatorParams*, float);
     float detune;    
     float phaseOffset; 
     
@@ -24,25 +24,25 @@ struct Oscillator{
 struct OscillatorState{
     float phase;
     float last;
-    OscillatorParams params;
+    int8_t used;
 };
 
 
 
-float osciGet(Oscillator* osci, OscillatorState* state, float sr);
-void osciAdvance(Oscillator* osci, OscillatorState* state, float sr);
-float osciNext(Oscillator* osci, OscillatorState* state, float input, float sr);
+float osciGet(Oscillator* osci, OscillatorState* state, OscillatorParams*, float sr);
+void osciAdvance(Oscillator* osci, OscillatorState* state, OscillatorParams* params, float sr);
+float osciNext(Oscillator* osci, OscillatorState* state, OscillatorParams* params, float input, float sr);
 
-float squareWave(OscillatorState* state, float sr);
-float pulseWave(OscillatorState* state, float sr);
-float triangleWave(OscillatorState* state, float sr);
-float sineWave(OscillatorState* state, float sr);
-float sawWave(OscillatorState* state, float sr);
+float squareWave(OscillatorState* state, OscillatorParams*, float sr);
+float pulseWave(OscillatorState* state,OscillatorParams*, float sr);
+float triangleWave(OscillatorState* state,OscillatorParams*, float sr);
+float sineWave(OscillatorState* state, OscillatorParams*,float sr);
+float sawWave(OscillatorState* state, OscillatorParams*,float sr);
 
-float polyblepSaw(OscillatorState* state, float sr);
+float polyblepSaw(OscillatorState* state, OscillatorParams*,float sr);
 
-float polyblepSquare(OscillatorState* state, float sampleRate);
-float polyblepPulse(OscillatorState* state, float sampleRate);
-float polyblampTriangle(OscillatorState* state, float sampleRate);
-float polyblepTriangle(OscillatorState* state, float sampleRate);
-float noise(OscillatorState* state, float sampleRate);
+float polyblepSquare(OscillatorState* state, OscillatorParams*,float sampleRate);
+float polyblepPulse(OscillatorState* state, OscillatorParams*,float sampleRate);
+float polyblampTriangle(OscillatorState* state, OscillatorParams*,float sampleRate);
+float polyblepTriangle(OscillatorState* state, OscillatorParams*,float sampleRate);
+float noise(OscillatorState* state, OscillatorParams*,float sampleRate);

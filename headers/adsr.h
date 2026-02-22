@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 typedef enum ADSRStage ADSRStage;
 typedef struct ADSREnv ADSREnv;
 typedef struct ADSREnvState ADSREnvState;
@@ -25,10 +27,11 @@ struct ADSREnv {
 struct ADSREnvState{
     ADSRStage stage;
     float value;
+    int8_t used;
     float releaseValue;
 
 };
 
 float adsrGet(ADSREnv* env, ADSREnvState* state, float sr);
 void adsrAdvance(ADSREnv* env, ADSREnvState* state, float sr);
-float adsrNext(ADSREnv* env, ADSREnvState* state, float, float sr);
+float adsrNext(ADSREnv* env, ADSREnvState* state, void*, float, float sr);

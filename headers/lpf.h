@@ -1,5 +1,5 @@
 #pragma once
-#include "all.h"
+#include <stdint.h>
 
 #define MAX_POLES 16
 
@@ -7,7 +7,7 @@ typedef struct LPF LPF;
 typedef struct LPFState LPFState;
 typedef union LPFParams LPFParams;
 
-float LPFNext(LPF* lpf, LPFState* state, float input, float sampleRate);
+float LPFNext(LPF* lpf, LPFState* state, LPFParams* params, float input, float sampleRate);
 
 
 union LPFParams {
@@ -25,7 +25,8 @@ struct LPF {
 };
 struct LPFState {
     float values[MAX_POLES];
-    LPFParams params;
+    int8_t used;
+    
 
 };
 

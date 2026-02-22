@@ -1,8 +1,8 @@
 # Compiler
-CC = gcc
+CC = clang
 
 # Compiler flags
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall -Wextra -std=c23 -O3
 
 # Directories
 SRC_DIR = src

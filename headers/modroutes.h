@@ -13,26 +13,33 @@ typedef enum {
     ASSIGN,
 } MODROUTE_MODE;
 typedef enum {
-    LFO,
-    ENV,
-    FILTER,
-    CONSTANT, //alternatively equivalent to voice volume in the case of ModDest
-    ROUTE,
-    OSCILLATOR,
-    VOLUME,
+    MLFO,
+    MENV,
+    MFILTER,
+    MCONSTANT,
 } Modifier;
+typedef enum {
+    DLFO,
+    DENV,
+    DFILTER,
+    DROUTE,
+    DOSCILLATOR,
+    DVOLUME,
+    DCONSTANT, //temporary
+} Destination;
 
 
 struct ModDest {
-    Modifier modifier;
+    Destination modifier;
     int index;
     int field;
 };
 struct ModRoute {
-    float (*next)(void*, void*, float, float);
+    float (*next)(void*, void*, void*, float, float);
     float amount;
     float* dest;
     void* preset;
+    void* params;
     void* state;
     Modifier modifier;
     int index;

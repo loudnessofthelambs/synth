@@ -1,36 +1,36 @@
+#include <stdlib.h>
+#define HEADER_SIZE 44
+#define BLOCK_SIZE 512
+#define MAX_VOICES 16
+#define MAX_OSCI 8
 
 #include <stdio.h>
-
 #include <string.h>
-
+#include <math.h>
 #include "../headers/oscillator.h"
-#include "../headers/all.h"
+#include "../headers/utils.h"
 #include "../headers/adsr.h"
 #include "../headers/lpf.h"
 #include "../headers/voice.h"
 #include "../headers/modroutes.h"
 
-#define HEADER_SIZE 44
-#define BLOCK_SIZE 512
-#define MAX_VOICES 16
-#define MAX_OSCI 8
+
 typedef struct WavHeader WavHeader;
 
 typedef struct WavFile WavFile;
 
 float midiToFreq(float num);
-float voiceNext(Voice* voice);
 void voiceOn(Voice* voice, Instrument* instr, int midiNote, float velocity, float volume, float sampleRate);
 void voiceOff(Voice* voice);
-void fillBlockVoice(float* block, Voice* voice, int fillamt);
-void writeBlock(WavFile* file, float* block, int amount);
+void fillBlockVoice(Signal* block, Voice* voice, int fillamt);
+void writeBlock(WavFile* file, Signal* block, int amount);
 int timeToSample(float time, float sr);
 float sampleToTime(int sample, float sr);
 Voice initializeVoice();
 Voice* findFreeVoice(Synth* synth);
 Voice* getVoice(Synth* synth);
 float bpm;
-
+int numChannels;
 
 uint64_t sampleCount = 0;
 //Wav header struct
@@ -67,34 +67,41 @@ struct WavFile{
 
 
 
-
-void fillBlockVoice(float* block, Voice* voice, int fillamt) {
+void fillBlockVoice(Signal* block, Voice* voice, int fillamt) {
     if (fillamt >= BLOCK_SIZE) fillamt = BLOCK_SIZE;
     if (!voice->active) {
         return;
     };
     
     for (int i = 0; i < fillamt; i++) {
-        block[i] += voiceNext(voice);
-        
-        if (fabs(block[i]) < 1e-15f) block[i] = 0.0f;
+        block[i] = addSignals(voiceNext(voice), block[i]);
+        if (fabs(block[i].l) < 1e-15f) block[i].l = 0.0f;
+        if (fabs(block[i].r) < 1e-15f) block[i].r = 0.0f;
 
     }
 }
 
 
-void writeBlock(WavFile* file, float* block, int amount) {
+void writeBlock(WavFile* file, Signal* block, int amount) {
     if (amount > BLOCK_SIZE) amount = BLOCK_SIZE;
-    int16_t pcm[BLOCK_SIZE];
-    for (int i = 0; i < amount; i++) {
+    int16_t pcm[BLOCK_SIZE*numChannels];
+    for (int i = 0; i < amount*numChannels; i+=numChannels) {
         
-        float sample = block[i];
-        if (sample > 1) {
-            //printf("%f\n", sample);
+        Signal sample = block[i];
+        if (sample.l < -1) {
+            //printf("%f\n", sample.l);
         }
-        if (sample > 1.0)  sample = 1.0;
-        if (sample < -1.0) sample = -1.0;
-        pcm[i] = (int16_t)(sample * 32767.0f);
+        if (sample.l > 1.0)  sample.l = 1.0;
+        if (sample.l < -1.0) sample.l = -1.0;
+        if (sample.r > 1.0)  sample.r = 1.0;
+        if (sample.r < -1.0) sample.r = -1.0;
+        if (numChannels == 1) {
+            pcm[i] = (int16_t)((sample.l + sample.r)/2.0 * 32767.0f);
+        }
+        if (numChannels == 2) {
+            pcm[i] = (int16_t)(sample.l * 32767.0f);
+            pcm[i+1] = (int16_t)(sample.r * 32767.0f);
+        }
         //printf("%f\n", block[i]);
     }
     fwrite(pcm, sizeof(int16_t), amount, file->fp);
@@ -102,7 +109,7 @@ void writeBlock(WavFile* file, float* block, int amount) {
     return;
 }
 int timeToSample(float time, float sr) {
-    return time * sr;
+    return time * sr * numChannels;
 }
 float sampleToTime(int sample, float sr) {
     return (float)(sample / (float)sr);
@@ -139,7 +146,7 @@ void generateAudio(
     
     int64_t totSamples = timeToSample(time*60/bpm, synth->sampleRate);
     for (int64_t i = 0; i < totSamples; i+= BLOCK_SIZE) {
-        float buffer[BLOCK_SIZE] = {0};
+        Signal buffer[BLOCK_SIZE] = {0};
         int fillamt = totSamples - i;
         if (fillamt > BLOCK_SIZE) fillamt = BLOCK_SIZE;
 
@@ -158,9 +165,11 @@ void generateAudio(
 
 int main(int argc, char** argv)
 {
+    (void)argc;
+    (void)argv;
     srand(67);
     FILE* fp;
-    fp = fopen("audio2.wav", "wb+");
+    fp = fopen("audio6.wav", "wb+");
     if (fp == NULL) {
         printf("Error opening file for writing.\n");
         return 1;
@@ -168,7 +177,7 @@ int main(int argc, char** argv)
     
     float samplerat = 44100;
 
-    
+    numChannels = 1;
     
 
     WavHeader h = {0};
@@ -180,7 +189,7 @@ int main(int argc, char** argv)
 
     h.fmt_size        = 16;
     h.audio_format    = 1;
-    h.num_channels    = 1;
+    h.num_channels    = numChannels;
     h.sample_rate     = (int)samplerat;
     h.bits_per_sample = 16;
 
@@ -240,8 +249,8 @@ int main(int argc, char** argv)
     */
 
     // WARM BASS PRESET
-    Oscillator Bosci = {sawWave, 0.0, 0.0, {0,0,0.5}};
-    Oscillator Bosci2 = {sawWave, -5.0, 0.0, {0,0,0.5}};
+    Oscillator Bosci = {sawWave, 0.0, 0.0, {{0,0,0.5}}};
+    Oscillator Bosci2 = {sawWave, -5.0, 0.0, {{0,0,0.5}}};
     
     warmBass.numOscs = 2;
 
@@ -254,28 +263,28 @@ int main(int argc, char** argv)
     warmBass.numEnvs = 2;
 
     
-    LPF Blpf = {4, {800.0, 0.2}};
+    LPF Blpf = {4, {{800.0, 0.2}}};
     
     
     warmBass.filters[0] = Blpf;
     warmBass.numFilters = 1;
     warmBass.gain = 1.0;
     setDefaultModRoutes(&warmBass);
-    addModRoute(&warmBass, ASSIGN, FILTER, 0, 1.0, (ModDest){CONSTANT, 0, 0});
-    addModRoute(&warmBass, ADD, ENV, 1, 2000.0, (ModDest){FILTER, 1, 0});
-    addModRoute(&warmBass, MULT, ENV, 0, 1.0, (ModDest){VOLUME, 0, 0});
+    addModRoute(&warmBass, ASSIGN, MFILTER, 0, 1.0, (ModDest){DCONSTANT, 0, 0});
+    addModRoute(&warmBass, ADD, MENV, 1, 2000.0, (ModDest){DFILTER, 1, 0});
+    addModRoute(&warmBass, MULT, MENV, 0, 1.0, (ModDest){DVOLUME, 0, 0});
 
 
 
     //LEAD PRESET
-    Oscillator Losci = {polyblepSaw, 0.0, 0.1, {0,0,0.2}};
-    Oscillator Losci2 = {polyblepSaw, -5.0, 0.03, {0,0,0.2}};
-    Oscillator Losci3 = {polyblepSaw, -2.0, 0.35, {0,0,0.2}};
-    Oscillator Losci4 = {polyblepSaw, 2.0, 0.8, {0,0,0.2}};
-    Oscillator Losci5 = {polyblepSaw, 5.0, 0.62, {0,0,0.2}};
-    Oscillator Losci6 = {noise, 12.0, 0.62, {0,0,0.02}};
+    Oscillator Losci = {polyblepSaw, 0.0, 0.1, {{0,0,0.2}}};
+    Oscillator Losci2 = {polyblepSaw, -5.0, 0.03, {{0,0,0.2}}};
+    Oscillator Losci3 = {polyblepSaw, -2.0, 0.35, {{0,0,0.2}}};
+    Oscillator Losci4 = {polyblepSaw, 2.0, 0.8, {{0,0,0.2}}};
+    Oscillator Losci5 = {polyblepSaw, 5.0, 0.62, {{0,0,0.2}}};
+    Oscillator Losci6 = {noise, 12.0, 0.62, {{0,0,0.02}}};
 
-    Oscillator Llfo = {sineWave, 0.0, 0.0, {5.0, 5.0, 0.1}};
+    Oscillator Llfo = {sineWave, 0.0, 0.0, {{5.0, 5.0, 0.1}}};
     lead.numOscs = 6;
 
     lead.oscs[0]=Losci;
@@ -294,27 +303,39 @@ int main(int argc, char** argv)
     lead.lfos[0] = Llfo;
     lead.numLFOS = 1;
     
-    LPF Llpf = {4, {3500.0, 0.2}};
+    LPF Llpf = {4, {{2500.0, 0.2}}};
     
     
     lead.filters[0] = Llpf;
     lead.numFilters = 1;
-    lead.gain = 2.0;
+    lead.gain = 1;
     setDefaultModRoutes(&lead);
-    addModRoute(&lead, ADD, ENV, 1, 3500.0, (ModDest){FILTER, 1, 0});
-    addModRoute(&lead, ASSIGN, FILTER, 0, 1.0, (ModDest){CONSTANT, 0, 0});
-    addModRoute(&lead, MULT, ENV, 0, 1.0, (ModDest){VOLUME, 0, 0});
-    addModRoute(&lead, MULTADD, LFO, 0, SEMITONE-1, (ModDest){OSCILLATOR, 0, 0});
-    addModRoute(&lead, MULTADD, LFO, 0, SEMITONE-1, (ModDest){OSCILLATOR, 1, 0});
-    addModRoute(&lead, MULTADD, LFO, 0, SEMITONE-1, (ModDest){OSCILLATOR, 2, 0});
-    addModRoute(&lead, MULTADD, LFO, 0, SEMITONE-1, (ModDest){OSCILLATOR, 3, 0});
-    addModRoute(&lead, MULTADD, LFO, 0, SEMITONE-1, (ModDest){OSCILLATOR, 4, 0});
-
-
-    
+    addModRoute(&lead, ADD, MENV, 1, 3500.0, (ModDest){DFILTER, 1, 0});
+    //addModRoute(&lead, ASSIGN, MFILTER, 0, 1.0, (ModDest){DCONSTANT, 0, 0});
+    addModRoute(&lead, MULT, MENV, 0, 1.0, (ModDest){DVOLUME, 0, 0});
+    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 0, 0});
+    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 1, 0});
+    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 2, 0});
+    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 3, 0});
+    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 4, 0});
+    addSignalNode(&lead, SOSCILLATOR, 0);
+    addSignalNode(&lead, SOSCILLATOR, 1);
+    addSignalNode(&lead, SOSCILLATOR, 2);
+    addSignalNode(&lead, SOSCILLATOR, 3);
+    addSignalNode(&lead, SOSCILLATOR, 4);
+    addSignalNode(&lead, SOSCILLATOR, 5);
+    addSignalNode(&lead, SMIXER, 0);
+    addSignalNodeInput(&lead, 6, 0);
+    addSignalNodeInput(&lead, 6, 1);
+    addSignalNodeInput(&lead, 6, 2);
+    addSignalNodeInput(&lead, 6, 3);
+    addSignalNodeInput(&lead, 6, 4);
+    addSignalNodeInput(&lead, 6, 5);
+    addSignalNode(&lead, SFILTER, 0);
+    addSignalNodeInput(&lead, 7, 6);
 
     bpm = 125;
-
+    
 
     Instrument simplesine = lead;
 
