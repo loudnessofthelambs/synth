@@ -25,9 +25,13 @@ typedef enum {
     DROUTE,
     DOSCILLATOR,
     DVOLUME,
-    DCONSTANT, //temporary
+    DPANNER, 
+    DPITCH,
 } Destination;
-
+typedef enum {
+    VOICE,
+    OTHER
+} Priority;
 
 struct ModDest {
     Destination modifier;
@@ -45,6 +49,7 @@ struct ModRoute {
     int index;
     ModDest destination;
     MODROUTE_MODE mode;
+    Priority priority;
 };
 
 

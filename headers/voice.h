@@ -28,7 +28,7 @@ struct VoiceState{
 
 struct VoiceParams {
     float volume;
-    float sample;
+    float freq;
     OscillatorParams oscis[MAX_OSCI];
     LPFParams filterParams[MAX_OTHER];
     OscillatorParams lfoParams[MAX_OTHER];
@@ -54,11 +54,15 @@ struct Voice{
     VoiceParams params;
     VoiceState state;
     ModMatrix matrix;
+    
     Node signalChain[MAX_NODES];
     float sampleRate;
     int note;
     float velocity;
     int active;
+
+    float baseVolume;
+    float baseFreq;
 };
 
 struct Synth{
@@ -74,10 +78,15 @@ void voiceOff(Voice* voice);
 
 void addModRoute(Instrument* instrum, MODROUTE_MODE mode, Modifier modifier, int index, float amount, ModDest destination);
 
-void setDefaultModRoutes(Instrument* instrum);
+void addModRoutePrio(Instrument* instrum, MODROUTE_MODE mode, Modifier modifier, int index, float amount, ModDest destination);
+
+void applyModMatrixVoice(Voice* voice);
+
+void initializeParams(Voice* voice);
 
 void addSignalNode(Instrument* instrum, NodeType type, int index);
 
 void addSignalNodeInput(Instrument* instrum, int index, int inputIndex);
 
 float constOne(void*, void*, void*, float, float);
+

@@ -7,10 +7,9 @@ typedef union OscillatorParams OscillatorParams;
 union OscillatorParams {
     struct {
         float freq;
-        float freqBase;
         float gain;
     };
-    float paramsArray[4];
+    float paramsArray[2];
 };
 
 struct Oscillator{

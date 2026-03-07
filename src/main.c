@@ -249,8 +249,8 @@ int main(int argc, char** argv)
     */
 
     // WARM BASS PRESET
-    Oscillator Bosci = {sawWave, 0.0, 0.0, {{0,0,0.5}}};
-    Oscillator Bosci2 = {sawWave, -5.0, 0.0, {{0,0,0.5}}};
+    Oscillator Bosci = {sawWave, 0.0, 0.0, {{0,0.5}}};
+    Oscillator Bosci2 = {sawWave, -5.0, 0.0, {{0,0.5}}};
     
     warmBass.numOscs = 2;
 
@@ -269,22 +269,22 @@ int main(int argc, char** argv)
     warmBass.filters[0] = Blpf;
     warmBass.numFilters = 1;
     warmBass.gain = 1.0;
-    setDefaultModRoutes(&warmBass);
-    addModRoute(&warmBass, ASSIGN, MFILTER, 0, 1.0, (ModDest){DCONSTANT, 0, 0});
+
+    
     addModRoute(&warmBass, ADD, MENV, 1, 2000.0, (ModDest){DFILTER, 1, 0});
     addModRoute(&warmBass, MULT, MENV, 0, 1.0, (ModDest){DVOLUME, 0, 0});
 
 
 
     //LEAD PRESET
-    Oscillator Losci = {polyblepSaw, 0.0, 0.1, {{0,0,0.2}}};
-    Oscillator Losci2 = {polyblepSaw, -5.0, 0.03, {{0,0,0.2}}};
-    Oscillator Losci3 = {polyblepSaw, -2.0, 0.35, {{0,0,0.2}}};
-    Oscillator Losci4 = {polyblepSaw, 2.0, 0.8, {{0,0,0.2}}};
-    Oscillator Losci5 = {polyblepSaw, 5.0, 0.62, {{0,0,0.2}}};
-    Oscillator Losci6 = {noise, 12.0, 0.62, {{0,0,0.02}}};
+    Oscillator Losci = {polyblepSaw, 0.0, 0.1, {{0,0.2}}};
+    Oscillator Losci2 = {polyblepSaw, -5.0, 0.03, {{0,0.2}}};
+    Oscillator Losci3 = {polyblepSaw, -2.0, 0.35, {{0,0.2}}};
+    Oscillator Losci4 = {polyblepSaw, 2.0, 0.8, {{0,0.2}}};
+    Oscillator Losci5 = {polyblepSaw, 5.0, 0.62, {{0,0.2}}};
+    Oscillator Losci6 = {noise, 12.0, 0.62, {{0,0.02}}};
 
-    Oscillator Llfo = {sineWave, 0.0, 0.0, {{5.0, 5.0, 0.1}}};
+    Oscillator Llfo = {sineWave, 0.0, 0.0, {{5.0, 0.1}}};
     lead.numOscs = 6;
 
     lead.oscs[0]=Losci;
@@ -309,15 +309,11 @@ int main(int argc, char** argv)
     lead.filters[0] = Llpf;
     lead.numFilters = 1;
     lead.gain = 1;
-    setDefaultModRoutes(&lead);
+
     addModRoute(&lead, ADD, MENV, 1, 3500.0, (ModDest){DFILTER, 1, 0});
     //addModRoute(&lead, ASSIGN, MFILTER, 0, 1.0, (ModDest){DCONSTANT, 0, 0});
     addModRoute(&lead, MULT, MENV, 0, 1.0, (ModDest){DVOLUME, 0, 0});
-    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 0, 0});
-    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 1, 0});
-    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 2, 0});
-    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 3, 0});
-    addModRoute(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DOSCILLATOR, 4, 0});
+    addModRoutePrio(&lead, MULTADD, MLFO, 0, SEMITONE-1, (ModDest){DPITCH, 0, 0});
     addSignalNode(&lead, SOSCILLATOR, 0);
     addSignalNode(&lead, SOSCILLATOR, 1);
     addSignalNode(&lead, SOSCILLATOR, 2);

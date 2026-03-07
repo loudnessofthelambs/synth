@@ -2,15 +2,15 @@
 
 #include "../headers/modroutes.h"
 #include "../headers/lpf.h"
-//#include <stdio.h>
+#include <stdio.h>
 
 
 
-void applyModRow(ModRoute* modrow, float sr) {
+void applyModRoute(ModRoute* modrow, float sr) {
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wcompare-distinct-pointer-types"
     if (modrow->next == LPFNext) {
-        //printf("Here%f\n", *modrow->dest);
+        printf("Here%p\n", modrow->dest);
     }
     float next = modrow->next(modrow->preset, modrow->state, modrow->params, *modrow->dest, sr);
     if (modrow->next == LPFNext) {
@@ -51,7 +51,7 @@ void applyModRow(ModRoute* modrow, float sr) {
 void applyModMatrix(ModMatrix modroutes, int length, float sr) {
 
     for (int i = 0; i < length; i++) {
-        applyModRow(&modroutes[i], sr);
+        applyModRoute(&modroutes[i], sr);
         
     }
     return;

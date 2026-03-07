@@ -10,15 +10,17 @@ float constOne(void*, void*, void*, float, float) {
 Signal voiceNext(Voice* voice) {
 
     //void* x = &voice;
-    //printf("vcreash\n");
-    applyModMatrix(voice->matrix, voice->instr->routeNum+voice->instr->numOscs+1, voice->sampleRate);
+    
+    initializeParams(voice);
+
+    applyModMatrixVoice(voice);
+    
     for (int i = 0; i < voice->instr->nodeNum; i++) {
         processNode(&voice->signalChain[i],voice->sampleRate);
         
         
     }
     Signal ret = voice->signalChain[voice->instr->nodeNum-1].output;
-    voice->params.sample = voice->signalChain[voice->instr->nodeNum-1].output.l;
     //printf("%f\n", voice->params.volume);
     //printf("Here%f\n", voice->state.filterStates[0].params.cutoff);
     ret.l *= voice->instr->gain;
@@ -27,13 +29,11 @@ Signal voiceNext(Voice* voice) {
     ret.r *= voice->params.volume;
     //printf("%f\n", voice->params.volume);
     //printf("%f\n", voice->params.sample);
-    voice->params.sample *= voice->instr->gain;
-    voice->params.sample *= voice->params.volume;
     //printf("%f\n", sample);
     return ret;
 }
 static OscillatorState* getFreeOscillatorState(Voice* voice) {
-    for (int i = 0; i < MAX_OTHER; i++) {
+    for (int i = 0; i < MAX_STATE; i++) {
         if (voice->state.oscis[i].used == 0) {
             voice->state.oscis[i].used = 1;
             return &voice->state.oscis[i];
@@ -80,22 +80,15 @@ void voiceOn(Voice* voice, Instrument* instr, int midiNote, float velocity, floa
     voice->params.volume = volume;
     voice->note = midiNote;
     voice->velocity = velocity;
-    voice->matrix[0].next = constOne;
-    voice->matrix[0].next = constOne;
-    voice->matrix[0].amount = volume;
-    voice->matrix[0].mode = ASSIGN;
-    voice->matrix[0].dest = &voice->params.volume;
+    voice->baseVolume = volume;
+    voice->baseFreq = midiToFreq(midiNote);
     
 
     //setting up oscillators
     for (int i = 0; i < instr->numOscs;i++) {
         voice->params.oscis[i] = voice->instr->oscs[i].baseParams;
-        voice->params.oscis[i].freqBase = midiToFreq(midiNote);
         voice->state.oscis[i].last = 0.0;
-        voice->matrix[i+1].next = constOne;
-        voice->matrix[i+1].mode = ASSIGN;
-        voice->matrix[i+1].amount = midiToFreq(midiNote);
-        voice->matrix[i+1].dest = &voice->params.oscis[i].freq;
+
         //printf("%d\n", i);
     }
 
@@ -130,30 +123,30 @@ void voiceOn(Voice* voice, Instrument* instr, int midiNote, float velocity, floa
 
     //setting up mod matrix
     for (int i = 0; i < voice->instr->routeNum; i++) {
-        voice->matrix[i+instr->numOscs+1].amount = voice->instr->matrix[i].amount;
-        voice->matrix[i+instr->numOscs+1].mode = voice->instr->matrix[i].mode;
+        voice->matrix[i].amount = voice->instr->matrix[i].amount;
+        voice->matrix[i].mode = voice->instr->matrix[i].mode;
         switch (voice->instr->matrix[i].modifier) {
             case MENV:
-                voice->matrix[i+instr->numOscs+1].next = (float (*)(void*, void*, void* ,float, float))adsrNext;
-                voice->matrix[i+instr->numOscs+1].preset = &voice->instr->envs[voice->instr->matrix[i].index];
-                voice->matrix[i+instr->numOscs+1].params = NULL;
-                voice->matrix[i+instr->numOscs+1].state = getFreeEnvState(voice);
+                voice->matrix[i].next = (float (*)(void*, void*, void* ,float, float))adsrNext;
+                voice->matrix[i].preset = &voice->instr->envs[voice->instr->matrix[i].index];
+                voice->matrix[i].params = NULL;
+                voice->matrix[i].state = getFreeEnvState(voice);
 
                 break;
             case MFILTER:
-                voice->matrix[i+instr->numOscs+1].next = (float (*)(void*, void*, void* ,float, float))LPFNext;
-                voice->matrix[i+instr->numOscs+1].preset = &voice->instr->filters[voice->instr->matrix[i].index];
-                voice->matrix[i+instr->numOscs+1].params = &voice->params.filterParams[voice->instr->matrix[i].index];
-                voice->matrix[i+instr->numOscs+1].state = getFreeFilterState(voice);
+                voice->matrix[i].next = (float (*)(void*, void*, void* ,float, float))LPFNext;
+                voice->matrix[i].preset = &voice->instr->filters[voice->instr->matrix[i].index];
+                voice->matrix[i].params = &voice->params.filterParams[voice->instr->matrix[i].index];
+                voice->matrix[i].state = getFreeFilterState(voice);
                 break;
             case MCONSTANT:
-                voice->matrix[i+instr->numOscs+1].next = constOne;
+                voice->matrix[i].next = constOne;
                 break;
             case MLFO:
-                voice->matrix[i+instr->numOscs+1].next = (float (*)(void*, void*, void* ,float, float))osciNext;
-                voice->matrix[i+instr->numOscs+1].preset = &voice->instr->lfos[voice->instr->matrix[i].index];
-                voice->matrix[i+instr->numOscs+1].params = &voice->params.lfoParams[voice->instr->matrix[i].index];
-                voice->matrix[i+instr->numOscs+1].state = getFreeLFOState(voice);
+                voice->matrix[i].next = (float (*)(void*, void*, void* ,float, float))osciNext;
+                voice->matrix[i].preset = &voice->instr->lfos[voice->instr->matrix[i].index];
+                voice->matrix[i].params = &voice->params.lfoParams[voice->instr->matrix[i].index];
+                voice->matrix[i].state = getFreeLFOState(voice);
                 break;
 
         }
@@ -161,26 +154,28 @@ void voiceOn(Voice* voice, Instrument* instr, int midiNote, float velocity, floa
             case DENV:
                 break;
             case DFILTER:
-                voice->matrix[i+instr->numOscs+1].dest = &voice->params.filterParams[voice->instr->matrix[i].destination.index].
+                voice->matrix[i].dest = &voice->params.filterParams[voice->instr->matrix[i].destination.index].
                                                     paramsArray[voice->instr->matrix[i].destination.field];
                 break;
-            case DCONSTANT:
-                voice->matrix[i+instr->numOscs+1].dest = &voice->params.sample;
+            case DPANNER:
+                //voice->matrix[i].dest = &voice->params.sample;
                 break;
             case DVOLUME:
-                voice->matrix[i+instr->numOscs+1].dest = &voice->params.volume;
+                voice->matrix[i].dest = &voice->params.volume;
                 break;
             case DOSCILLATOR:
-                voice->matrix[i+instr->numOscs+1].dest = &voice->params.oscis[voice->instr->matrix[i].destination.index].
+                voice->matrix[i].dest = &voice->params.oscis[voice->instr->matrix[i].destination.index].
                                                     paramsArray[voice->instr->matrix[i].destination.field];
                 break;
             case DROUTE:
-                voice->matrix[i+instr->numOscs+1].dest = &voice->matrix[voice->instr->matrix[i].destination.index].amount;
+                voice->matrix[i].dest = &voice->matrix[voice->instr->matrix[i].destination.index].amount;
                 break;
             case DLFO:
-                voice->matrix[i+instr->numOscs+1].dest = &voice->params.lfoParams[voice->instr->matrix[i].destination.index].
+                voice->matrix[i].dest = &voice->params.lfoParams[voice->instr->matrix[i].destination.index].
                                                     paramsArray[voice->instr->matrix[i].destination.field];
                 break;
+            case DPITCH:
+                voice->matrix[i].dest = &voice->params.freq;
 
         }
         //printf("%p\n", voice->matrix[i].dest);
@@ -246,20 +241,51 @@ void addModRoute(Instrument* instrum, MODROUTE_MODE mode, Modifier modifier, int
     instrum->matrix[instrum->routeNum].mode = mode;
     instrum->matrix[instrum->routeNum].index = index;
     instrum->matrix[instrum->routeNum].modifier = modifier;
+    instrum->matrix[instrum->routeNum].priority = OTHER;
+    instrum->routeNum += 1;
+}
+void addModRoutePrio(Instrument* instrum, MODROUTE_MODE mode, Modifier modifier, int index, float amount, ModDest destination) {
+
+    instrum->matrix[instrum->routeNum].destination = destination;
+    instrum->matrix[instrum->routeNum].amount = amount;
+    instrum->matrix[instrum->routeNum].mode = mode;
+    instrum->matrix[instrum->routeNum].index = index;
+    instrum->matrix[instrum->routeNum].modifier = modifier;
+    instrum->matrix[instrum->routeNum].priority = VOICE;
     instrum->routeNum += 1;
 }
 
-void setDefaultModRoutes(Instrument* instrum) {
-    for (int i = 0; i < instrum->numOscs; i++) {
-        addModRoute(instrum, ASSIGN, MCONSTANT, 0, instrum->oscs[i].baseParams.paramsArray[2], (ModDest){DOSCILLATOR, i, 2});
+void applyModMatrixVoice(Voice* voice) {
+    for (int i = 0; i < voice->instr->routeNum; i++) {
+        if (voice->matrix[i].priority == VOICE) {
+            applyModRoute(&voice->matrix[i], voice->sampleRate);
+        }
     }
-    for (int i = 0; i < instrum->numLFOS; i++) {
-        addModRoute(instrum, ASSIGN, MCONSTANT, 0, instrum->lfos[i].baseParams.paramsArray[2], (ModDest){DLFO, i, 2});
+    for (int i = 0; i < voice->instr->numOscs; i++) {
+        voice->params.oscis[i].freq = voice->params.freq;
     }
-    for (int i = 0; i < instrum->numFilters; i++) {
-        addModRoute(instrum, ASSIGN, MCONSTANT, 0, instrum->filters[i].baseParams.paramsArray[0], (ModDest){DFILTER, i, 0});
-        addModRoute(instrum, ASSIGN, MCONSTANT, 0, instrum->filters[i].baseParams.paramsArray[1], (ModDest){DFILTER, i, 1});
-        printf("%f\n", instrum->filters[i].baseParams.paramsArray[0]);
+    for (int i = 0; i < voice->instr->routeNum; i++) {
+        if (voice->matrix[i].priority == OTHER) {
+            applyModRoute(&voice->matrix[i], voice->sampleRate);
+        }
+    }
+    return;
+}
+
+void initializeParams(Voice* voice) {
+    voice->params.freq = voice->baseFreq;
+    voice->params.volume = voice->baseVolume;
+    for (int i = 0; i < voice->instr->numOscs; i++) {
+        voice->params.oscis[i].freq = voice->params.freq;
+        voice->params.oscis[i].gain = voice->instr->oscs[i].baseParams.gain;
+    }
+    for (int i = 0; i < voice->instr->numLFOS; i++) {
+        voice->params.lfoParams[i].freq = voice->instr->lfos[i].baseParams.freq;
+        voice->params.lfoParams[i].gain = voice->instr->lfos[i].baseParams.gain;
+    }
+    for (int i = 0; i < voice->instr->numFilters; i++) {
+        voice->params.filterParams[i].cutoff = voice->instr->filters[i].baseParams.cutoff;
+        voice->params.filterParams[i].resonance = voice->instr->filters[i].baseParams.resonance;
     }
 }
 
@@ -274,3 +300,4 @@ void addSignalNodeInput(Instrument *instrum, int index, int inputIndex) {
     instrum->signalChain[index].inputIndexes[instrum->signalChain[index].numInputs] = inputIndex;
     instrum->signalChain[index].numInputs++;
 }
+
