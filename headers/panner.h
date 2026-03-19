@@ -1,3 +1,5 @@
+#pragma once
+
 #include "signal.h"
 
 typedef struct Panner Panner;
@@ -18,4 +20,3 @@ struct Panner {
 
 
 void pannerProcess(Node* node, float sr);
-

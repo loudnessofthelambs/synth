@@ -1,6 +1,7 @@
 #include "../headers/signal.h"
 #include "../headers/lpf.h"
 #include "../headers/oscillator.h"
+#include "../headers/panner.h"
 #include <stdio.h>
 
 static void filterProcess(Node* node, float sr);
@@ -20,7 +21,7 @@ void processNode(Node* node, float sr) {
             filterProcess(node, sr);
             break;
         case SPANNER:
-            filterProcess(node, sr);
+            pannerProcess(node, sr);
             break;
     }
 }

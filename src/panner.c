@@ -2,8 +2,10 @@
 #include <math.h>
 
 void pannerProcess(Node* node, float sr) {
+    (void)sr;
     float pan = ((PannerParams*)node->params)->pan;
-    float gl = sqrtf((1.0-pan)/2.0);
-    float gr = sqrtf((1.0+pan)/2.0);
-    node->output = (Signal){node->inputs[0]->l*gl, node->inputs[0]->r*gr};
+    float mono = (node->inputs[0]->l + node->inputs[0]->r) * 0.5f;
+    float gl = sqrtf((1.0f - pan) * 0.5f);
+    float gr = sqrtf((1.0f + pan) * 0.5f);
+    node->output = (Signal){mono * gl, mono * gr};
 }

@@ -4,6 +4,7 @@
 #include "lpf.h"
 #include "adsr.h"
 #include "modroutes.h"
+#include "panner.h"
 #include "signal.h"
 
 #define MAX_VOICES 16
@@ -32,6 +33,7 @@ struct VoiceParams {
     OscillatorParams oscis[MAX_OSCI];
     LPFParams filterParams[MAX_OTHER];
     OscillatorParams lfoParams[MAX_OTHER];
+    PannerParams pannerParams[MAX_OTHER];
 };
 
 struct Instrument{
@@ -39,10 +41,12 @@ struct Instrument{
     ADSREnv envs[MAX_OTHER]; 
     LPF filters[MAX_OTHER];
     Oscillator lfos[MAX_OTHER];
+    Panner panners[MAX_OTHER];
     int8_t numEnvs;
     int8_t numOscs;
     int8_t numFilters;
     int8_t numLFOS;
+    int8_t numPanners;
     ModMatrix matrix;
     int routeNum;
     NodePreset signalChain[MAX_NODES];
@@ -60,15 +64,26 @@ struct Voice{
     int note;
     float velocity;
     int active;
+    int released;
 
     float baseVolume;
     float baseFreq;
+    float lastLevel;
+    uint64_t startedAtFrame;
+    uint64_t releasedAtFrame;
+    uint64_t generation;
 };
 
 struct Synth{
     Voice voices[MAX_VOICES];
     float sampleRate;
+    uint64_t frameIndex;
 };
+
+void synthInit(Synth* synth, float sampleRate);
+int synthHasActiveVoices(const Synth* synth);
+Voice* synthAcquireVoice(Synth* synth);
+Signal synthNextFrame(Synth* synth);
 
 Signal voiceNext(Voice* voice);
 
@@ -89,4 +104,3 @@ void addSignalNode(Instrument* instrum, NodeType type, int index);
 void addSignalNodeInput(Instrument* instrum, int index, int inputIndex);
 
 float constOne(void*, void*, void*, float, float);
-

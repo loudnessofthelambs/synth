@@ -158,5 +158,5 @@ float polyblepTriangle(OscillatorState* state,  OscillatorParams* params,float s
 float noise(OscillatorState* state, OscillatorParams*, float sampleRate) {
     (void)state;
     (void)sampleRate;
-    return (float)rand() / (float)RAND_MAX;
+    return 2.0f * ((float)rand() / (float)RAND_MAX) - 1.0f;
 }
