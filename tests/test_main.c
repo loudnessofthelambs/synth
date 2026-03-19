@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "../headers/adsr.h"
+#include "../headers/fx.h"
 #include "../headers/instrumentio.h"
 #include "../headers/lpf.h"
 #include "../headers/midi.h"
@@ -123,8 +124,8 @@ static void testOscillators(TestState* state) {
 }
 
 static void testFilter(TestState* state) {
-    LPF filter = {2, {{500.0f, 0.1f}}};
-    LPFParams params = {.cutoff = 500.0f, .resonance = 0.1f};
+    LPF filter = {FILTER_LADDER, 2, {{500.0f, 0.1f, 0.0f}}};
+    LPFParams params = {.cutoff = 500.0f, .resonance = 0.1f, .gainDB = 0.0f};
     LPFState filterState = {0};
     float output = 0.0f;
 
@@ -133,6 +134,14 @@ static void testFilter(TestState* state) {
         output = LPFNext(&filter, &filterState, &params, 1.0f, 44100.0f);
     }
     EXPECT_TRUE(state, output > 0.0f && output < 1.0f, "LPF smooths a step input");
+
+    filter.mode = FILTER_BIQUAD_HP;
+    params.cutoff = 200.0f;
+    filterState = (LPFState){0};
+    for (int i = 0; i < 64; i++) {
+        output = LPFNext(&filter, &filterState, &params, 1.0f, 44100.0f);
+    }
+    EXPECT_TRUE(state, fabsf(output) < 0.5f, "biquad high-pass rejects DC");
 }
 
 static void testModRoutes(TestState* state) {
@@ -165,6 +174,44 @@ static void testPanner(TestState* state) {
     EXPECT_TRUE(state, node.output.r > 0.9f, "full-right pan keeps right loud");
 }
 
+static void testEffects(TestState* state) {
+    DistortionParams dist = {.drive = 3.0f, .mix = 1.0f, .outputGain = 1.0f};
+    DelayParams delay = {.time = 0.01f, .feedback = 0.4f, .mix = 0.5f, .tone = 0.8f};
+    ChorusParams chorus = {.rate = 0.5f, .depth = 0.003f, .mix = 0.5f, .baseDelay = 0.006f};
+    DelayState delayState = {0};
+    ChorusState chorusState = {0};
+    float outL = 0.0f;
+    float outR = 0.0f;
+    float maxDelayEcho = 0.0f;
+
+    printComponent("effects");
+    delayState.left = calloc(MAX_DELAY_SAMPLES, sizeof(*delayState.left));
+    delayState.right = calloc(MAX_DELAY_SAMPLES, sizeof(*delayState.right));
+    delayState.capacity = MAX_DELAY_SAMPLES;
+    chorusState.left = calloc(MAX_CHORUS_SAMPLES, sizeof(*chorusState.left));
+    chorusState.right = calloc(MAX_CHORUS_SAMPLES, sizeof(*chorusState.right));
+    chorusState.capacity = MAX_CHORUS_SAMPLES;
+
+    distortionProcess(NULL, &dist, NULL, 0.8f, -0.8f, &outL, &outR);
+    EXPECT_TRUE(state, fabsf(outL) <= 1.0f && fabsf(outL) > 0.8f, "distortion saturates into a bounded output");
+
+    for (int i = 0; i < 128; i++) {
+        delayProcess(NULL, &delay, &delayState, 1000.0f, i == 0 ? 1.0f : 0.0f, 0.0f, &outL, &outR);
+        if (fabsf(outL) > maxDelayEcho) {
+            maxDelayEcho = fabsf(outL);
+        }
+    }
+    EXPECT_TRUE(state, maxDelayEcho > 0.1f, "delay produces audible echo");
+
+    chorusProcess(NULL, &chorus, &chorusState, 1000.0f, 1.0f, 1.0f, &outL, &outR);
+    EXPECT_TRUE(state, outL > 0.0f && outR > 0.0f, "chorus produces stereo output");
+
+    free(delayState.left);
+    free(delayState.right);
+    free(chorusState.left);
+    free(chorusState.right);
+}
+
 static void testSignal(TestState* state) {
     Signal left = {0.25f, 0.50f};
     Signal right = {0.75f, 0.10f};
@@ -182,12 +229,16 @@ static void testSignal(TestState* state) {
 
 static void testPresets(TestState* state) {
     Instrument lead = {0};
+    Instrument pad = {0};
 
     printComponent("presets");
     initLead(&lead);
     EXPECT_TRUE(state, lead.numOscs == 6, "lead preset creates six oscillators");
     EXPECT_TRUE(state, lead.numPanners == 1, "lead preset includes a panner");
     EXPECT_TRUE(state, loadBuiltInInstrument("warmbass", &lead), "builtin preset lookup works");
+    initAtmosPad(&pad);
+    EXPECT_TRUE(state, pad.numChoruses == 1, "pad preset includes chorus");
+    EXPECT_TRUE(state, pad.numDelays == 1, "pad preset includes delay");
 }
 
 static void testInstrumentIo(TestState* state) {
@@ -204,6 +255,8 @@ static void testInstrumentIo(TestState* state) {
     EXPECT_TRUE(state, strcmp(name, "test-lead") == 0, "preset name round-trips");
     EXPECT_NEAR(state, loaded.oscs[0].baseParams.gain, 0.42, 0.0001, "oscillator gain round-trips");
     EXPECT_TRUE(state, loaded.nodeNum == lead.nodeNum, "signal graph round-trips");
+    EXPECT_TRUE(state, applyInstrumentSetting(&lead, "filter0.mode=FILTER_BIQUAD_PEAK"), "filter mode accepts symbolic values");
+    EXPECT_TRUE(state, applyInstrumentSetting(&lead, "delay0.time=0.25"), "delay settings are editable");
 }
 
 static void testMidi(TestState* state) {
@@ -262,6 +315,7 @@ int main(void) {
     testFilter(&state);
     testModRoutes(&state);
     testPanner(&state);
+    testEffects(&state);
     testSignal(&state);
     testPresets(&state);
     testInstrumentIo(&state);

@@ -150,6 +150,9 @@ static const char* nodeTypeToName(NodeType type) {
         case SFILTER: return "SFILTER";
         case SMIXER: return "SMIXER";
         case SPANNER: return "SPANNER";
+        case SDISTORTION: return "SDISTORTION";
+        case SDELAY: return "SDELAY";
+        case SCHORUS: return "SCHORUS";
     }
     return "SMIXER";
 }
@@ -159,6 +162,28 @@ static int nameToNodeType(const char* name, NodeType* type) {
     else if (strcmp(name, "SFILTER") == 0) *type = SFILTER;
     else if (strcmp(name, "SMIXER") == 0) *type = SMIXER;
     else if (strcmp(name, "SPANNER") == 0) *type = SPANNER;
+    else if (strcmp(name, "SDISTORTION") == 0) *type = SDISTORTION;
+    else if (strcmp(name, "SDELAY") == 0) *type = SDELAY;
+    else if (strcmp(name, "SCHORUS") == 0) *type = SCHORUS;
+    else return 0;
+    return 1;
+}
+
+static const char* filterModeToName(FilterMode mode) {
+    switch (mode) {
+        case FILTER_LADDER: return "FILTER_LADDER";
+        case FILTER_BIQUAD_LP: return "FILTER_BIQUAD_LP";
+        case FILTER_BIQUAD_HP: return "FILTER_BIQUAD_HP";
+        case FILTER_BIQUAD_PEAK: return "FILTER_BIQUAD_PEAK";
+    }
+    return "FILTER_LADDER";
+}
+
+static int nameToFilterMode(const char* name, FilterMode* mode) {
+    if (strcmp(name, "FILTER_LADDER") == 0) *mode = FILTER_LADDER;
+    else if (strcmp(name, "FILTER_BIQUAD_LP") == 0) *mode = FILTER_BIQUAD_LP;
+    else if (strcmp(name, "FILTER_BIQUAD_HP") == 0) *mode = FILTER_BIQUAD_HP;
+    else if (strcmp(name, "FILTER_BIQUAD_PEAK") == 0) *mode = FILTER_BIQUAD_PEAK;
     else return 0;
     return 1;
 }
@@ -236,6 +261,9 @@ static int applyFilterSetting(LPF* filter, const char* field, const char* value)
     float floatValue = 0.0f;
     int intValue = 0;
 
+    if (strcmp(field, "mode") == 0) {
+        return nameToFilterMode(value, &filter->mode);
+    }
     if (strcmp(field, "poles") == 0) {
         if (!parseInt(value, &intValue)) {
             return 0;
@@ -248,6 +276,7 @@ static int applyFilterSetting(LPF* filter, const char* field, const char* value)
     }
     if (strcmp(field, "cutoff") == 0) filter->baseParams.cutoff = floatValue;
     else if (strcmp(field, "resonance") == 0) filter->baseParams.resonance = floatValue;
+    else if (strcmp(field, "gainDB") == 0) filter->baseParams.gainDB = floatValue;
     else return 0;
     return 1;
 }
@@ -257,6 +286,44 @@ static int applyPannerSetting(Panner* panner, const char* field, const char* val
         return 0;
     }
     return parseFloat(value, &panner->baseParams.pan);
+}
+
+static int applyDistortionSetting(Distortion* distortion, const char* field, const char* value) {
+    float floatValue = 0.0f;
+    if (!parseFloat(value, &floatValue)) {
+        return 0;
+    }
+    if (strcmp(field, "drive") == 0) distortion->baseParams.drive = floatValue;
+    else if (strcmp(field, "mix") == 0) distortion->baseParams.mix = floatValue;
+    else if (strcmp(field, "outputGain") == 0) distortion->baseParams.outputGain = floatValue;
+    else return 0;
+    return 1;
+}
+
+static int applyDelaySetting(Delay* delay, const char* field, const char* value) {
+    float floatValue = 0.0f;
+    if (!parseFloat(value, &floatValue)) {
+        return 0;
+    }
+    if (strcmp(field, "time") == 0) delay->baseParams.time = floatValue;
+    else if (strcmp(field, "feedback") == 0) delay->baseParams.feedback = floatValue;
+    else if (strcmp(field, "mix") == 0) delay->baseParams.mix = floatValue;
+    else if (strcmp(field, "tone") == 0) delay->baseParams.tone = floatValue;
+    else return 0;
+    return 1;
+}
+
+static int applyChorusSetting(Chorus* chorus, const char* field, const char* value) {
+    float floatValue = 0.0f;
+    if (!parseFloat(value, &floatValue)) {
+        return 0;
+    }
+    if (strcmp(field, "rate") == 0) chorus->baseParams.rate = floatValue;
+    else if (strcmp(field, "depth") == 0) chorus->baseParams.depth = floatValue;
+    else if (strcmp(field, "mix") == 0) chorus->baseParams.mix = floatValue;
+    else if (strcmp(field, "baseDelay") == 0) chorus->baseParams.baseDelay = floatValue;
+    else return 0;
+    return 1;
 }
 
 static int applyRouteSetting(ModRoute* route, const char* field, const char* value) {
@@ -349,6 +416,27 @@ static int applyInstrumentSettingKV(Instrument* instrument, const char* key, con
         if (instrument->numPanners <= index) instrument->numPanners = (int8_t)(index + 1);
         return 1;
     }
+    if (parseIndexedField(key, "distortion", &index, &field)) {
+        if (index >= MAX_OTHER || !applyDistortionSetting(&instrument->distortions[index], field, value)) {
+            return 0;
+        }
+        if (instrument->numDistortions <= index) instrument->numDistortions = (int8_t)(index + 1);
+        return 1;
+    }
+    if (parseIndexedField(key, "delay", &index, &field)) {
+        if (index >= MAX_OTHER || !applyDelaySetting(&instrument->delays[index], field, value)) {
+            return 0;
+        }
+        if (instrument->numDelays <= index) instrument->numDelays = (int8_t)(index + 1);
+        return 1;
+    }
+    if (parseIndexedField(key, "chorus", &index, &field)) {
+        if (index >= MAX_OTHER || !applyChorusSetting(&instrument->choruses[index], field, value)) {
+            return 0;
+        }
+        if (instrument->numChoruses <= index) instrument->numChoruses = (int8_t)(index + 1);
+        return 1;
+    }
     if (parseIndexedField(key, "route", &index, &field)) {
         if (index >= MAX_ROWS || !applyRouteSetting(&instrument->matrix[index], field, value)) {
             return 0;
@@ -372,6 +460,9 @@ static int applyInstrumentSettingKV(Instrument* instrument, const char* key, con
     else if (strcmp(key, "numFilters") == 0) instrument->numFilters = (int8_t)intValue;
     else if (strcmp(key, "numLFOS") == 0) instrument->numLFOS = (int8_t)intValue;
     else if (strcmp(key, "numPanners") == 0) instrument->numPanners = (int8_t)intValue;
+    else if (strcmp(key, "numDistortions") == 0) instrument->numDistortions = (int8_t)intValue;
+    else if (strcmp(key, "numDelays") == 0) instrument->numDelays = (int8_t)intValue;
+    else if (strcmp(key, "numChoruses") == 0) instrument->numChoruses = (int8_t)intValue;
     else if (strcmp(key, "routeNum") == 0) instrument->routeNum = intValue;
     else if (strcmp(key, "nodeNum") == 0) instrument->nodeNum = intValue;
     else {
@@ -416,6 +507,9 @@ int saveInstrumentFile(const char* path, const Instrument* instrument, const cha
     fprintf(file, "numFilters=%d\n", instrument->numFilters);
     fprintf(file, "numLFOS=%d\n", instrument->numLFOS);
     fprintf(file, "numPanners=%d\n", instrument->numPanners);
+    fprintf(file, "numDistortions=%d\n", instrument->numDistortions);
+    fprintf(file, "numDelays=%d\n", instrument->numDelays);
+    fprintf(file, "numChoruses=%d\n", instrument->numChoruses);
     fprintf(file, "routeNum=%d\n", instrument->routeNum);
     fprintf(file, "nodeNum=%d\n", instrument->nodeNum);
 
@@ -434,9 +528,11 @@ int saveInstrumentFile(const char* path, const Instrument* instrument, const cha
         fprintf(file, "env%d.active=%d\n", i, instrument->envs[i].active);
     }
     for (int i = 0; i < instrument->numFilters; i++) {
+        fprintf(file, "filter%d.mode=%s\n", i, filterModeToName(instrument->filters[i].mode));
         fprintf(file, "filter%d.poles=%d\n", i, instrument->filters[i].poles);
         fprintf(file, "filter%d.cutoff=%g\n", i, instrument->filters[i].baseParams.cutoff);
         fprintf(file, "filter%d.resonance=%g\n", i, instrument->filters[i].baseParams.resonance);
+        fprintf(file, "filter%d.gainDB=%g\n", i, instrument->filters[i].baseParams.gainDB);
     }
     for (int i = 0; i < instrument->numLFOS; i++) {
         fprintf(file, "lfo%d.wave=%s\n", i, waveToName(instrument->lfos[i].get));
@@ -447,6 +543,23 @@ int saveInstrumentFile(const char* path, const Instrument* instrument, const cha
     }
     for (int i = 0; i < instrument->numPanners; i++) {
         fprintf(file, "panner%d.pan=%g\n", i, instrument->panners[i].baseParams.pan);
+    }
+    for (int i = 0; i < instrument->numDistortions; i++) {
+        fprintf(file, "distortion%d.drive=%g\n", i, instrument->distortions[i].baseParams.drive);
+        fprintf(file, "distortion%d.mix=%g\n", i, instrument->distortions[i].baseParams.mix);
+        fprintf(file, "distortion%d.outputGain=%g\n", i, instrument->distortions[i].baseParams.outputGain);
+    }
+    for (int i = 0; i < instrument->numDelays; i++) {
+        fprintf(file, "delay%d.time=%g\n", i, instrument->delays[i].baseParams.time);
+        fprintf(file, "delay%d.feedback=%g\n", i, instrument->delays[i].baseParams.feedback);
+        fprintf(file, "delay%d.mix=%g\n", i, instrument->delays[i].baseParams.mix);
+        fprintf(file, "delay%d.tone=%g\n", i, instrument->delays[i].baseParams.tone);
+    }
+    for (int i = 0; i < instrument->numChoruses; i++) {
+        fprintf(file, "chorus%d.rate=%g\n", i, instrument->choruses[i].baseParams.rate);
+        fprintf(file, "chorus%d.depth=%g\n", i, instrument->choruses[i].baseParams.depth);
+        fprintf(file, "chorus%d.mix=%g\n", i, instrument->choruses[i].baseParams.mix);
+        fprintf(file, "chorus%d.baseDelay=%g\n", i, instrument->choruses[i].baseParams.baseDelay);
     }
     for (int i = 0; i < instrument->routeNum; i++) {
         fprintf(file, "route%d.amount=%g\n", i, instrument->matrix[i].amount);

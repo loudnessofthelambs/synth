@@ -58,12 +58,23 @@ static int numChannels = 2;
 static void printUsage(void) {
     printf("audio-utils\n");
     printf("Usage:\n");
-    printf("  ./audio [--instrument lead|warmbass] [--load-preset file] [--set key=value]\n");
-    printf("          [--save-preset file] [--midi file.mid] [--output file.wav] [--bpm value]\n");
+    printf("  ./audio [--instrument lead|warmbass|pluck|glasskeys|atmospad] [--load-preset file]\n");
+    printf("          [--set key=value] [--save-preset file] [--midi file.mid]\n");
+    printf("          [--output file.wav] [--bpm value] [--list-instruments]\n");
     printf("\n");
     printf("Examples:\n");
     printf("  ./audio --instrument lead --set osc0.gain=0.25 --save-preset bright.preset\n");
     printf("  ./audio --load-preset bright.preset --midi song.mid --output song.wav\n");
+    printf("  ./audio --instrument atmospad --set chorus0.mix=0.45 --save-preset custom-pad.preset\n");
+}
+
+static void printInstrumentList(void) {
+    printf("Built-in instruments:\n");
+    printf("  warmbass\n");
+    printf("  lead\n");
+    printf("  pluck\n");
+    printf("  glasskeys\n");
+    printf("  atmospad\n");
 }
 
 static int timeToSamples(double seconds, float sampleRate) {
@@ -326,6 +337,10 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
             printUsage();
+            return 0;
+        }
+        if (strcmp(argv[i], "--list-instruments") == 0) {
+            printInstrumentList();
             return 0;
         }
         if (strcmp(argv[i], "--instrument") == 0 && i + 1 < argc) {

@@ -13,6 +13,9 @@ typedef enum {
     SFILTER, 
     SMIXER,
     SPANNER,
+    SDISTORTION,
+    SDELAY,
+    SCHORUS,
 } NodeType;
 
 struct Signal {

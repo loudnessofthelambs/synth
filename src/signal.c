@@ -1,4 +1,5 @@
 #include "../headers/signal.h"
+#include "../headers/fx.h"
 #include "../headers/lpf.h"
 #include "../headers/oscillator.h"
 #include "../headers/panner.h"
@@ -7,6 +8,9 @@
 static void filterProcess(Node* node, float sr);
 static void mixerProcess(Node* node);
 static void oscillatorProcess(Node* node, float sr);
+static void distortionNodeProcess(Node* node);
+static void delayNodeProcess(Node* node, float sr);
+static void chorusNodeProcess(Node* node, float sr);
 
 void processNode(Node* node, float sr) {
 
@@ -22,6 +26,15 @@ void processNode(Node* node, float sr) {
             break;
         case SPANNER:
             pannerProcess(node, sr);
+            break;
+        case SDISTORTION:
+            distortionNodeProcess(node);
+            break;
+        case SDELAY:
+            delayNodeProcess(node, sr);
+            break;
+        case SCHORUS:
+            chorusNodeProcess(node, sr);
             break;
     }
 }
@@ -69,6 +82,44 @@ static void mixerProcess(Node* node) {
         node->output = addSignals(node->output, *node->inputs[i]);
     }
     
+}
+
+static void distortionNodeProcess(Node* node) {
+    distortionProcess(
+        node->preset,
+        (DistortionParams*)node->params,
+        NULL,
+        node->inputs[0]->l,
+        node->inputs[0]->r,
+        &node->output.l,
+        &node->output.r
+    );
+}
+
+static void delayNodeProcess(Node* node, float sr) {
+    delayProcess(
+        node->preset,
+        (DelayParams*)node->params,
+        (DelayState*)node->state[0],
+        sr,
+        node->inputs[0]->l,
+        node->inputs[0]->r,
+        &node->output.l,
+        &node->output.r
+    );
+}
+
+static void chorusNodeProcess(Node* node, float sr) {
+    chorusProcess(
+        node->preset,
+        (ChorusParams*)node->params,
+        (ChorusState*)node->state[0],
+        sr,
+        node->inputs[0]->l,
+        node->inputs[0]->r,
+        &node->output.l,
+        &node->output.r
+    );
 }
 
 Signal addSignals(Signal signal1, Signal signal2) {

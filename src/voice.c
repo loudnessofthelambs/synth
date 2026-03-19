@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 static int voiceFinished(const Voice* voice) {
     if (voice->instr == NULL) {
@@ -31,6 +32,33 @@ static void clearVoiceState(Voice* voice) {
         voice->state.filterStates[i] = (LPFState){0};
         voice->state.lfoState[i] = (OscillatorState){0};
     }
+    for (int i = 0; i < MAX_OTHER; i++) {
+        voice->state.delayStates[i].writeIndex = 0;
+        voice->state.delayStates[i].used = 0;
+        voice->state.chorusStates[i].writeIndex = 0;
+        voice->state.chorusStates[i].phase = 0.0f;
+        voice->state.chorusStates[i].used = 0;
+    }
+}
+
+static void ensureDelayState(DelayState* state) {
+    if (state->left == NULL) {
+        state->left = calloc(MAX_DELAY_SAMPLES, sizeof(*state->left));
+    }
+    if (state->right == NULL) {
+        state->right = calloc(MAX_DELAY_SAMPLES, sizeof(*state->right));
+    }
+    state->capacity = MAX_DELAY_SAMPLES;
+}
+
+static void ensureChorusState(ChorusState* state) {
+    if (state->left == NULL) {
+        state->left = calloc(MAX_CHORUS_SAMPLES, sizeof(*state->left));
+    }
+    if (state->right == NULL) {
+        state->right = calloc(MAX_CHORUS_SAMPLES, sizeof(*state->right));
+    }
+    state->capacity = MAX_CHORUS_SAMPLES;
 }
 
 static OscillatorState* getFreeOscillatorState(Voice* voice) {
@@ -85,6 +113,15 @@ static void copyBaseParams(Voice* voice) {
     }
     for (int i = 0; i < voice->instr->numPanners; i++) {
         voice->params.pannerParams[i] = voice->instr->panners[i].baseParams;
+    }
+    for (int i = 0; i < voice->instr->numDistortions; i++) {
+        voice->params.distortionParams[i] = voice->instr->distortions[i].baseParams;
+    }
+    for (int i = 0; i < voice->instr->numDelays; i++) {
+        voice->params.delayParams[i] = voice->instr->delays[i].baseParams;
+    }
+    for (int i = 0; i < voice->instr->numChoruses; i++) {
+        voice->params.chorusParams[i] = voice->instr->choruses[i].baseParams;
     }
 }
 
@@ -189,6 +226,22 @@ static void configureSignalNode(Voice* voice, int nodeIndex) {
         case SPANNER:
             node->preset = &voice->instr->panners[preset.index];
             node->params = &voice->params.pannerParams[preset.index];
+            break;
+        case SDISTORTION:
+            node->preset = &voice->instr->distortions[preset.index];
+            node->params = &voice->params.distortionParams[preset.index];
+            break;
+        case SDELAY:
+            node->preset = &voice->instr->delays[preset.index];
+            node->params = &voice->params.delayParams[preset.index];
+            node->state[0] = &voice->state.delayStates[preset.index];
+            ensureDelayState((DelayState*)node->state[0]);
+            break;
+        case SCHORUS:
+            node->preset = &voice->instr->choruses[preset.index];
+            node->params = &voice->params.chorusParams[preset.index];
+            node->state[0] = &voice->state.chorusStates[preset.index];
+            ensureChorusState((ChorusState*)node->state[0]);
             break;
     }
 
@@ -405,9 +458,19 @@ void initializeParams(Voice* voice) {
     for (int i = 0; i < voice->instr->numFilters; i++) {
         voice->params.filterParams[i].cutoff = voice->instr->filters[i].baseParams.cutoff;
         voice->params.filterParams[i].resonance = voice->instr->filters[i].baseParams.resonance;
+        voice->params.filterParams[i].gainDB = voice->instr->filters[i].baseParams.gainDB;
     }
     for (int i = 0; i < voice->instr->numPanners; i++) {
         voice->params.pannerParams[i].pan = voice->instr->panners[i].baseParams.pan;
+    }
+    for (int i = 0; i < voice->instr->numDistortions; i++) {
+        voice->params.distortionParams[i] = voice->instr->distortions[i].baseParams;
+    }
+    for (int i = 0; i < voice->instr->numDelays; i++) {
+        voice->params.delayParams[i] = voice->instr->delays[i].baseParams;
+    }
+    for (int i = 0; i < voice->instr->numChoruses; i++) {
+        voice->params.chorusParams[i] = voice->instr->choruses[i].baseParams;
     }
 }
 

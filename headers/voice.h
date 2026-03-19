@@ -3,6 +3,7 @@
 #include "oscillator.h"
 #include "lpf.h"
 #include "adsr.h"
+#include "fx.h"
 #include "modroutes.h"
 #include "panner.h"
 #include "signal.h"
@@ -25,6 +26,8 @@ struct VoiceState{
     ADSREnvState envStates[MAX_STATE];
     LPFState filterStates[MAX_STATE];
     OscillatorState lfoState[MAX_STATE];
+    DelayState delayStates[MAX_OTHER];
+    ChorusState chorusStates[MAX_OTHER];
 };
 
 struct VoiceParams {
@@ -34,6 +37,9 @@ struct VoiceParams {
     LPFParams filterParams[MAX_OTHER];
     OscillatorParams lfoParams[MAX_OTHER];
     PannerParams pannerParams[MAX_OTHER];
+    DistortionParams distortionParams[MAX_OTHER];
+    DelayParams delayParams[MAX_OTHER];
+    ChorusParams chorusParams[MAX_OTHER];
 };
 
 struct Instrument{
@@ -42,11 +48,17 @@ struct Instrument{
     LPF filters[MAX_OTHER];
     Oscillator lfos[MAX_OTHER];
     Panner panners[MAX_OTHER];
+    Distortion distortions[MAX_OTHER];
+    Delay delays[MAX_OTHER];
+    Chorus choruses[MAX_OTHER];
     int8_t numEnvs;
     int8_t numOscs;
     int8_t numFilters;
     int8_t numLFOS;
     int8_t numPanners;
+    int8_t numDistortions;
+    int8_t numDelays;
+    int8_t numChoruses;
     ModMatrix matrix;
     int routeNum;
     NodePreset signalChain[MAX_NODES];
